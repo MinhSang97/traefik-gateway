@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend2-python
+  namespace: traefik-gateway
+  labels:
+    app: backend2-python
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend2-python
+  template:
+    metadata:
+      labels:
+        app: backend2-python
+      annotations:
+        traefik.ingress.kubernetes.io/router.rule: "Host(`apifincheck.husanenglish.online`) && PathPrefix(`/products/`, `/docs/`)"
+        traefik.ingress.kubernetes.io/router.tls: "true"
+        traefik.ingress.kubernetes.io/router.tls.certresolver: "letsencrypt"
+    spec:
+      containers:
+      - name: backend2
+        image: python:3.11-alpine
+        ports:
+        - containerPort: 8000
+        command: ["python", "main.py"]
+        workingDir: /app
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app
+        env:
+        - name: ENV
+          value: "production"
+        - name: PORT
+          value: "8000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: app-volume
+        configMap:
+          name: backend2-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend2-service
+  namespace: traefik-gateway
+  labels:
+    app: backend2-python
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: backend2-python
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend2-config
+  namespace: traefik-gateway
+data:
+  main.py: |
+    from fastapi import FastAPI
+    import uvicorn
+    import os
+
+    app = FastAPI(title="Product Service", version="1.0.0")
+
+    @app.get("/health")
+    async def health():
+        return {
+            "status": "healthy",
+            "service": "product-service",
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
+
+    @app.get("/products/")
+    async def get_products():
+        return {
+            "message": "Get products",
+            "service": "product-service",
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
+
+    @app.get("/products/{product_id}")
+    async def get_product(product_id: int):
+        return {
+            "message": f"Get product {product_id}",
+            "service": "product-service",
+            "timestamp": "2024-01-01T00:00:00Z"
+        }
+
+    @app.get("/docs/")
+    async def docs():
+        return {"message": "API Documentation", "service": "product-service"}
+
+    if __name__ == "__main__":
+        port = int(os.getenv("PORT", 8000))
+        uvicorn.run(app, host="0.0.0.0", port=port)

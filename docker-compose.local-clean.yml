@@ -1,0 +1,114 @@
+# Docker Compose for Local Development - Traefik
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-gateway-local
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "8888:8080"  # Traefik dashboard
+    environment:
+      - TRAEFIK_LOG_LEVEL=INFO
+      - TRAEFIK_API_DASHBOARD=true
+      - TRAEFIK_API_INSECURE=true
+      - TRAEFIK_PROVIDERS_DOCKER=true
+      - TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false
+      - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.localhost`)
+      - traefik.http.routers.traefik.entrypoints=web
+      - traefik.http.routers.traefik.service=api@internal
+
+  backend1:
+    build:
+      context: ./backend1
+      dockerfile: Dockerfile
+    container_name: backend1-nodejs-local
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend1.rule=Host(`localhost`) && PathPrefix(`/users/`)
+      - traefik.http.routers.backend1.entrypoints=web
+      - traefik.http.routers.backend1.service=backend1-service
+      - traefik.http.services.backend1-service.loadbalancer.server.port=3000
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.interval=30s
+
+  backend2:
+    build:
+      context: ./backend2
+      dockerfile: Dockerfile
+    container_name: backend2-python-local
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENV=development
+      - PORT=8000
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend2.rule=Host(`localhost`) && (PathPrefix(`/products/`) || PathPrefix(`/docs/`))
+      - traefik.http.routers.backend2.entrypoints=web
+      - traefik.http.routers.backend2.service=backend2-service
+      - traefik.http.services.backend2-service.loadbalancer.server.port=8000
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.interval=30s
+
+  backend3:
+    build:
+      context: ./backend3
+      dockerfile: Dockerfile
+    container_name: backend3-java-local
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - ENV=development
+      - PORT=8080
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend3.rule=Host(`localhost`) && PathPrefix(`/orders/`)
+      - traefik.http.routers.backend3.entrypoints=web
+      - traefik.http.routers.backend3.service=backend3-service
+      - traefik.http.services.backend3-service.loadbalancer.server.port=8080
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.interval=30s
+
+  # Health check service
+  health-check:
+    image: nginx:alpine
+    container_name: health-check-local
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.health.rule=Host(`localhost`) && Path(`/health`)
+      - traefik.http.routers.health.entrypoints=web
+      - traefik.http.routers.health.service=health-service
+      - traefik.http.services.health-service.loadbalancer.server.port=80
+    volumes:
+      - ./traefik/health.html:/usr/share/nginx/html/index.html
+
+networks:
+  traefik-network:
+    driver: bridge

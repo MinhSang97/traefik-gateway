@@ -1,0 +1,128 @@
+# Docker Compose for Production - Traefik
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-gateway-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8888:8080"  # Traefik dashboard
+    environment:
+      - TRAEFIK_LOG_LEVEL=INFO
+      - TRAEFIK_API_DASHBOARD=true
+      - TRAEFIK_API_INSECURE=true
+      - TRAEFIK_PROVIDERS_DOCKER=true
+      - TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false
+      - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:80
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=:443
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=admin@apifincheck.husanenglish.online
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_STORAGE=/letsencrypt/acme.json
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_HTTPCHALLENGE_ENTRYPOINT=web
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.apifincheck.husanenglish.online`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik.service=api@internal
+
+  backend1:
+    build:
+      context: ./backend1
+      dockerfile: Dockerfile
+    container_name: backend1-nodejs-prod
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend1.rule=Host(`apifincheck.husanenglish.online`) && PathPrefix(`/auth/`, `/users/`)
+      - traefik.http.routers.backend1.entrypoints=websecure
+      - traefik.http.routers.backend1.tls.certresolver=letsencrypt
+      - traefik.http.routers.backend1.service=backend1-service
+      - traefik.http.services.backend1-service.loadbalancer.server.port=3000
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.interval=30s
+
+  backend2:
+    build:
+      context: ./backend2
+      dockerfile: Dockerfile
+    container_name: backend2-python-prod
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENV=production
+      - PORT=8000
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend2.rule=Host(`apifincheck.husanenglish.online`) && PathPrefix(`/products/`, `/docs/`)
+      - traefik.http.routers.backend2.entrypoints=websecure
+      - traefik.http.routers.backend2.tls.certresolver=letsencrypt
+      - traefik.http.routers.backend2.service=backend2-service
+      - traefik.http.services.backend2-service.loadbalancer.server.port=8000
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.interval=30s
+
+  backend3:
+    build:
+      context: ./backend3
+      dockerfile: Dockerfile
+    container_name: backend3-java-prod
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - ENV=production
+      - PORT=8080
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend3.rule=Host(`apifincheck.husanenglish.online`) && PathPrefix(`/orders/`)
+      - traefik.http.routers.backend3.entrypoints=websecure
+      - traefik.http.routers.backend3.tls.certresolver=letsencrypt
+      - traefik.http.routers.backend3.service=backend3-service
+      - traefik.http.services.backend3-service.loadbalancer.server.port=8080
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.interval=30s
+
+  # Health check service
+  health-check:
+    image: nginx:alpine
+    container_name: health-check-prod
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.health.rule=Host(`apifincheck.husanenglish.online`) && Path(`/health`)
+      - traefik.http.routers.health.entrypoints=websecure
+      - traefik.http.routers.health.tls.certresolver=letsencrypt
+      - traefik.http.routers.health.service=health-service
+      - traefik.http.services.health-service.loadbalancer.server.port=80
+    volumes:
+      - ./traefik/health.html:/usr/share/nginx/html/index.html
+
+volumes:
+  traefik_letsencrypt:
+
+networks:
+  traefik-network:
+    driver: bridge

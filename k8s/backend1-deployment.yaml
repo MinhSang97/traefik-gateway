@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend1-nodejs
+  namespace: traefik-gateway
+  labels:
+    app: backend1-nodejs
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend1-nodejs
+  template:
+    metadata:
+      labels:
+        app: backend1-nodejs
+      annotations:
+        traefik.ingress.kubernetes.io/router.rule: "Host(`apifincheck.husanenglish.online`) && PathPrefix(`/auth/`, `/users/`)"
+        traefik.ingress.kubernetes.io/router.tls: "true"
+        traefik.ingress.kubernetes.io/router.tls.certresolver: "letsencrypt"
+    spec:
+      containers:
+      - name: backend1
+        image: node:18-alpine
+        ports:
+        - containerPort: 3000
+        command: ["node", "server.js"]
+        workingDir: /app
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: app-volume
+        configMap:
+          name: backend1-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend1-service
+  namespace: traefik-gateway
+  labels:
+    app: backend1-nodejs
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+  selector:
+    app: backend1-nodejs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend1-config
+  namespace: traefik-gateway
+data:
+  server.js: |
+    const express = require('express');
+    const app = express();
+    const port = process.env.PORT || 3000;
+
+    app.use(express.json());
+
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+      res.json({
+        status: 'healthy',
+        service: 'user-service',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Auth endpoints
+    app.get('/auth/login', (req, res) => {
+      res.json({
+        message: 'Login endpoint',
+        service: 'user-service',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    app.post('/auth/login', (req, res) => {
+      res.json({
+        message: 'Login successful',
+        service: 'user-service',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // User endpoints
+    app.get('/users', (req, res) => {
+      res.json({
+        message: 'Get users',
+        service: 'user-service',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    app.get('/users/:id', (req, res) => {
+      res.json({
+        message: `Get user ${req.params.id}`,
+        service: 'user-service',
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`User service running on port ${port}`);
+    });

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Health Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .status { color: #28a745; font-size: 24px; }
+        .info { color: #666; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="status">✅ All Services Healthy</div>
+    <div class="info">
+        <p>Gateway: Traefik</p>
+        <p>Status: Active</p>
+        <p>Timestamp: <span id="timestamp"></span></p>
+    </div>
+    <script>
+        document.getElementById('timestamp').textContent = new Date().toISOString();
+    </script>
+</body>
+</html>

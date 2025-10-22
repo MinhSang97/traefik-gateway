@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend3-java
+  namespace: traefik-gateway
+  labels:
+    app: backend3-java
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend3-java
+  template:
+    metadata:
+      labels:
+        app: backend3-java
+      annotations:
+        traefik.ingress.kubernetes.io/router.rule: "Host(`apifincheck.husanenglish.online`) && PathPrefix(`/orders/`)"
+        traefik.ingress.kubernetes.io/router.tls: "true"
+        traefik.ingress.kubernetes.io/router.tls.certresolver: "letsencrypt"
+    spec:
+      containers:
+      - name: backend3
+        image: openjdk:17-alpine
+        ports:
+        - containerPort: 8080
+        command: ["java", "-cp", "/app", "OrderServiceApplication"]
+        workingDir: /app
+        volumeMounts:
+        - name: app-volume
+          mountPath: /app
+        env:
+        - name: ENV
+          value: "production"
+        - name: PORT
+          value: "8080"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: app-volume
+        configMap:
+          name: backend3-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend3-service
+  namespace: traefik-gateway
+  labels:
+    app: backend3-java
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: backend3-java
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend3-config
+  namespace: traefik-gateway
+data:
+  OrderServiceApplication.java: |
+    import java.io.*;
+    import java.net.*;
+    import java.time.Instant;
+
+    public class OrderServiceApplication {
+        public static void main(String[] args) {
+            try {
+                ServerSocket serverSocket = new ServerSocket(8080);
+                System.out.println("Order service running on port 8080");
+                
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    new Thread(() -> handleRequest(clientSocket)).start();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        
+        private static void handleRequest(Socket clientSocket) {
+            try {
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+                
+                String request = in.readLine();
+                String response = "";
+                
+                if (request != null && request.contains("GET /health")) {
+                    response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" +
+                              "{\"status\":\"healthy\",\"service\":\"order-service\",\"timestamp\":\"" + 
+                              Instant.now().toString() + "\"}";
+                } else if (request != null && request.contains("GET /orders/")) {
+                    response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n" +
+                              "{\"message\":\"Get orders\",\"service\":\"order-service\",\"timestamp\":\"" + 
+                              Instant.now().toString() + "\"}";
+                } else {
+                    response = "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n" +
+                              "{\"error\":\"Not Found\",\"service\":\"order-service\"}";
+                }
+                
+                out.println(response);
+                clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
