@@ -41,7 +41,7 @@ setup_local() {
     echo "🌐 Access URLs:"
     echo "  - Gateway Dashboard: http://localhost:8888"
     echo "  - API Gateway: http://localhost"
-    echo "  - Health Check: http://localhost/health"
+    echo "  - Health Check: http://localhost:8888/ping"
     echo ""
     echo "🔧 Load Balancer Features:"
     echo "  ✅ Round-robin load balancing"
@@ -75,7 +75,7 @@ setup_production() {
     echo "🌐 Access URLs:"
     echo "  - Gateway Dashboard: https://traefik.apifincheck.husanenglish.online:8888"
     echo "  - API Gateway: https://apifincheck.husanenglish.online"
-    echo "  - Health Check: https://apifincheck.husanenglish.online/health"
+    echo "  - Health Check: https://traefik.apifincheck.husanenglish.online:8888/ping"
     echo ""
     echo "🔧 Load Balancer Features:"
     echo "  ✅ Round-robin load balancing"
@@ -232,7 +232,7 @@ test_local_services() {
     
     # Test health
     echo "Health check:"
-    curl -s http://localhost/health | jq . 2>/dev/null || curl -s http://localhost/health
+    curl -s http://localhost:8888/ping | jq . 2>/dev/null || curl -s http://localhost:8888/ping
     echo ""
     
     # Test Traefik dashboard
@@ -279,7 +279,7 @@ test_production_services() {
     
     # Test health
     echo "Health check:"
-    curl -s -k https://apifincheck.husanenglish.online/health | jq . 2>/dev/null || curl -s -k https://apifincheck.husanenglish.online/health
+    curl -s -k https://traefik.apifincheck.husanenglish.online:8888/ping | jq . 2>/dev/null || curl -s -k https://traefik.apifincheck.husanenglish.online:8888/ping
     echo ""
     
     # Test SSL
@@ -326,7 +326,7 @@ test_kubernetes_services() {
     
     # Test health
     echo "Health check:"
-    curl -s -k https://$EXTERNAL_IP/health | jq . 2>/dev/null || curl -s -k https://$EXTERNAL_IP/health
+    curl -s -k https://$EXTERNAL_IP:8888/ping | jq . 2>/dev/null || curl -s -k https://$EXTERNAL_IP:8888/ping
     echo ""
     
     # Test metrics

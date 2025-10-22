@@ -154,24 +154,6 @@ services:
       - traefik.http.services.backend3-service.loadbalancer.sticky.cookie.secure=true
       - traefik.http.services.backend3-service.loadbalancer.sticky.cookie.httponly=true
 
-  # Health check service
-  health-check:
-    image: nginx:alpine
-    container_name: health-check-prod
-    restart: unless-stopped
-    expose:
-      - "80"
-    networks:
-      - traefik-network
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.health.rule=Host(`apifincheck.husanenglish.online`) && Path(`/health`)
-      - traefik.http.routers.health.entrypoints=websecure
-      - traefik.http.routers.health.tls.certresolver=letsencrypt
-      - traefik.http.routers.health.service=health-service
-      - traefik.http.services.health-service.loadbalancer.server.port=80
-    volumes:
-      - ./traefik/health.html:/usr/share/nginx/html/index.html
 
 volumes:
   traefik_letsencrypt:

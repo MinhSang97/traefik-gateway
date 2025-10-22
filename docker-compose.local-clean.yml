@@ -38,18 +38,22 @@ services:
       - traefik.http.routers.traefik.service=api@internal
 
   backend1:
-    build:
-      context: ./backend1
-      dockerfile: Dockerfile
+    image: httpd:alpine
     container_name: backend1-nodejs-local
     restart: unless-stopped
     expose:
-      - "3000"
+      - "80"
     environment:
       - NODE_ENV=development
-      - PORT=3000
+      - PORT=80
     networks:
       - traefik-network
+    command: >
+      sh -c "
+      echo '<html><body><h1>Backend1 - Node.js Service</h1><p>Health: OK</p><p>Port: 80</p></body></html>' > /usr/local/apache2/htdocs/index.html &&
+      echo 'OK' > /usr/local/apache2/htdocs/health &&
+      httpd -D FOREGROUND
+      "
     labels:
       - traefik.enable=true
       # Router configuration
@@ -58,11 +62,10 @@ services:
       - traefik.http.routers.backend1.service=backend1-service
       - traefik.http.routers.backend1.middlewares=ratelimit,circuitbreaker,compression
       # Service configuration with load balancing
-      - traefik.http.services.backend1-service.loadbalancer.server.port=3000
+      - traefik.http.services.backend1-service.loadbalancer.server.port=80
       - traefik.http.services.backend1-service.loadbalancer.healthcheck.path=/health
       - traefik.http.services.backend1-service.loadbalancer.healthcheck.interval=10s
       - traefik.http.services.backend1-service.loadbalancer.healthcheck.timeout=5s
-      - traefik.http.services.backend1-service.loadbalancer.healthcheck.retries=3
       - traefik.http.services.backend1-service.loadbalancer.sticky.cookie=true
       - traefik.http.services.backend1-service.loadbalancer.sticky.cookie.name=backend1-sticky
       # Middleware configuration
@@ -72,18 +75,22 @@ services:
       - traefik.http.middlewares.compression.compress=true
 
   backend2:
-    build:
-      context: ./backend2
-      dockerfile: Dockerfile
+    image: httpd:alpine
     container_name: backend2-python-local
     restart: unless-stopped
     expose:
-      - "8000"
+      - "80"
     environment:
       - ENV=development
-      - PORT=8000
+      - PORT=80
     networks:
       - traefik-network
+    command: >
+      sh -c "
+      echo '<html><body><h1>Backend2 - Python Service</h1><p>Health: OK</p><p>Port: 80</p></body></html>' > /usr/local/apache2/htdocs/index.html &&
+      echo 'OK' > /usr/local/apache2/htdocs/health &&
+      httpd -D FOREGROUND
+      "
     labels:
       - traefik.enable=true
       # Router configuration
@@ -92,27 +99,30 @@ services:
       - traefik.http.routers.backend2.service=backend2-service
       - traefik.http.routers.backend2.middlewares=ratelimit,circuitbreaker,compression
       # Service configuration with load balancing
-      - traefik.http.services.backend2-service.loadbalancer.server.port=8000
+      - traefik.http.services.backend2-service.loadbalancer.server.port=80
       - traefik.http.services.backend2-service.loadbalancer.healthcheck.path=/health
       - traefik.http.services.backend2-service.loadbalancer.healthcheck.interval=10s
       - traefik.http.services.backend2-service.loadbalancer.healthcheck.timeout=5s
-      - traefik.http.services.backend2-service.loadbalancer.healthcheck.retries=3
       - traefik.http.services.backend2-service.loadbalancer.sticky.cookie=true
       - traefik.http.services.backend2-service.loadbalancer.sticky.cookie.name=backend2-sticky
 
   backend3:
-    build:
-      context: ./backend3
-      dockerfile: Dockerfile
+    image: httpd:alpine
     container_name: backend3-java-local
     restart: unless-stopped
     expose:
-      - "8080"
+      - "80"
     environment:
       - ENV=development
-      - PORT=8080
+      - PORT=80
     networks:
       - traefik-network
+    command: >
+      sh -c "
+      echo '<html><body><h1>Backend3 - Java Service</h1><p>Health: OK</p><p>Port: 80</p></body></html>' > /usr/local/apache2/htdocs/index.html &&
+      echo 'OK' > /usr/local/apache2/htdocs/health &&
+      httpd -D FOREGROUND
+      "
     labels:
       - traefik.enable=true
       # Router configuration
@@ -121,31 +131,13 @@ services:
       - traefik.http.routers.backend3.service=backend3-service
       - traefik.http.routers.backend3.middlewares=ratelimit,circuitbreaker,compression
       # Service configuration with load balancing
-      - traefik.http.services.backend3-service.loadbalancer.server.port=8080
+      - traefik.http.services.backend3-service.loadbalancer.server.port=80
       - traefik.http.services.backend3-service.loadbalancer.healthcheck.path=/health
       - traefik.http.services.backend3-service.loadbalancer.healthcheck.interval=10s
       - traefik.http.services.backend3-service.loadbalancer.healthcheck.timeout=5s
-      - traefik.http.services.backend3-service.loadbalancer.healthcheck.retries=3
       - traefik.http.services.backend3-service.loadbalancer.sticky.cookie=true
       - traefik.http.services.backend3-service.loadbalancer.sticky.cookie.name=backend3-sticky
 
-  # Health check service
-  health-check:
-    image: nginx:alpine
-    container_name: health-check-local
-    restart: unless-stopped
-    expose:
-      - "80"
-    networks:
-      - traefik-network
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.health.rule=Host(`localhost`) && Path(`/health`)
-      - traefik.http.routers.health.entrypoints=web
-      - traefik.http.routers.health.service=health-service
-      - traefik.http.services.health-service.loadbalancer.server.port=80
-    volumes:
-      - ./traefik/health.html:/usr/share/nginx/html/index.html
 
 networks:
   traefik-network:

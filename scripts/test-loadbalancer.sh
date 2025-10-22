@@ -36,7 +36,7 @@ test_local_loadbalancer() {
     
     # Test basic connectivity
     print_status "Testing basic connectivity..."
-    if curl -s http://localhost/health >/dev/null; then
+    if curl -s http://localhost:8888/ping >/dev/null; then
         echo "✅ Gateway is accessible"
     else
         print_error "❌ Gateway is not accessible"
@@ -48,7 +48,7 @@ test_local_loadbalancer() {
     echo "Sending 20 requests quickly to test rate limiting..."
     rate_limited=0
     for i in {1..20}; do
-        response=$(curl -s -w "%{http_code}" -o /dev/null http://localhost/health)
+        response=$(curl -s -w "%{http_code}" -o /dev/null http://localhost:8888/ping)
         if [ "$response" = "429" ]; then
             rate_limited=1
             break
