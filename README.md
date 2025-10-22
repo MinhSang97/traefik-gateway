@@ -1,6 +1,6 @@
-# 🚀 Traefik + Nginx Hybrid Gateway
+# 🚀 Traefik Gateway với Load Balancer Nâng Cao
 
-Advanced hybrid gateway solution combining Traefik's auto-discovery with Nginx's powerful load balancing capabilities. Supports local development, production deployment, and Kubernetes orchestration.
+Advanced Traefik Gateway solution with built-in load balancing, health checks, circuit breaker, rate limiting, and auto-scaling. Supports local development, production deployment, and Kubernetes orchestration.
 
 ## 🏗️ Architecture Overview
 
@@ -73,6 +73,14 @@ cd traefik-nginx-gateway
 
 ## 🎯 Key Features
 
+### **🚀 Load Balancer Features**
+- ✅ **Round-robin load balancing**: Even distribution across backends
+- ✅ **Health checks**: Automatic failover with retry logic
+- ✅ **Circuit breaker**: Protection against cascade failures
+- ✅ **Rate limiting**: DDoS protection and API throttling
+- ✅ **Sticky sessions**: Session affinity with secure cookies
+- ✅ **Compression**: Gzip compression for better performance
+
 ### **🔧 Traefik Features**
 - ✅ **Auto-discovery**: Automatic service detection
 - ✅ **Dynamic configuration**: No restarts needed
@@ -80,19 +88,12 @@ cd traefik-nginx-gateway
 - ✅ **Dashboard UI**: Real-time monitoring
 - ✅ **Kubernetes native**: Perfect for K8s deployments
 
-### **⚡ Nginx Features**
-- ✅ **Advanced load balancing**: Least connections, health checks
-- ✅ **Security features**: Rate limiting, DDoS protection
-- ✅ **Performance optimization**: Gzip, keepalive, caching
-- ✅ **Flexible routing**: Complex routing rules
-- ✅ **Monitoring**: Detailed access logs
-
 ### **🛡️ Security Features**
 - ✅ **SSL/TLS termination**: Automatic HTTPS
-- ✅ **Rate limiting**: API protection
-- ✅ **DDoS protection**: Connection limiting
-- ✅ **Security headers**: HSTS, XSS protection
-- ✅ **IP blocking**: Direct IP access blocked
+- ✅ **Security headers**: HSTS, XSS protection, frame denial
+- ✅ **Rate limiting**: API protection with burst handling
+- ✅ **Circuit breaker**: Error threshold protection
+- ✅ **Health monitoring**: Comprehensive health checks
 
 ## 📊 API Endpoints
 
@@ -108,17 +109,24 @@ cd traefik-nginx-gateway
 
 ## 🔧 Configuration
 
+### **Load Balancer Configuration**
+- **Health Check Interval**: 10s (local), 5s (production)
+- **Circuit Breaker Threshold**: 30% (local), 20% (production)
+- **Rate Limiting**: 100 req/min (local), 200 req/min (production)
+- **Sticky Sessions**: Enabled with secure cookies
+- **Compression**: Gzip compression enabled
+
 ### **Traefik Configuration**
-- **Auto-discovery**: Docker labels
+- **Auto-discovery**: Docker labels and Kubernetes ingress
 - **SSL**: Let's Encrypt integration
 - **Dashboard**: Real-time monitoring
-- **Routing**: Host-based routing
+- **Routing**: Host-based routing with middleware
 
-### **Nginx Configuration**
-- **Load balancing**: Least connections algorithm
-- **Health checks**: Automatic failover
-- **Rate limiting**: Per-IP and per-endpoint
-- **Security**: Comprehensive security headers
+### **Kubernetes Configuration**
+- **Replicas**: 3 (High Availability)
+- **Auto-scaling**: HPA enabled (2-10 replicas)
+- **Resource Limits**: CPU and memory constraints
+- **Monitoring**: Prometheus metrics integration
 
 ## 🚀 Deployment Options
 
@@ -143,25 +151,36 @@ docker-compose -f docker-compose.traefik.yml up -d
 ### **3. Kubernetes**
 ```bash
 # Deploy to K8s
-./scripts/setup-k8s.sh
+./scripts/start-traefik.sh
+# Choose option 3: Kubernetes
 
 # Test deployment
-./scripts/test-k8s.sh
+./scripts/start-traefik.sh
+# Choose option 4: Test Services
 ```
 
 ## 📈 Monitoring & Logs
 
 ### **Traefik Dashboard**
 - **URL**: http://localhost:8888 (local) / https://traefik.apifincheck.husanenglish.online:8888 (prod)
-- **Features**: Real-time metrics, service discovery, routing rules
+- **Features**: Real-time metrics, service discovery, routing rules, load balancer status
 
-### **Nginx Logs**
+### **Load Balancer Monitoring**
+- **Metrics Endpoint**: `/metrics` - Prometheus metrics
+- **Health Check**: `/health` - Service health status
+- **Circuit Breaker**: Real-time error rate monitoring
+- **Rate Limiting**: Request rate statistics
+
+### **Logs**
 ```bash
 # View all logs
-docker-compose -f docker-compose.traefik-local.yml logs -f
+docker-compose -f docker-compose.local-clean.yml logs -f
 
 # View specific service
-docker-compose -f docker-compose.traefik-local.yml logs -f nginx-lb
+docker-compose -f docker-compose.local-clean.yml logs -f traefik-gateway-local
+
+# Kubernetes logs
+kubectl logs -f deployment/traefik-gateway -n traefik-gateway
 ```
 
 ### **Health Monitoring**
@@ -169,8 +188,11 @@ docker-compose -f docker-compose.traefik-local.yml logs -f nginx-lb
 # Health check
 curl http://localhost/health
 
-# Server info
-curl http://localhost/server-info
+# Load balancer metrics
+curl http://localhost:8888/metrics
+
+# Test rate limiting
+for i in {1..20}; do curl http://localhost/health; done
 ```
 
 ## 🔒 SSL Configuration
@@ -192,10 +214,30 @@ curl http://localhost/server-info
 
 ## 🧪 Testing
 
+### **Test Load Balancer Features**
+```bash
+# Test load balancer features
+./scripts/test-loadbalancer.sh
+
+# Test health checks
+curl http://localhost/health
+
+# Test rate limiting
+for i in {1..20}; do curl http://localhost/health; done
+
+# Test sticky sessions
+curl -c cookies.txt http://localhost/users/
+curl -b cookies.txt http://localhost/users/
+
+# Test compression
+curl -H "Accept-Encoding: gzip" -I http://localhost/health
+```
+
 ### **Test Individual Services**
 ```bash
 # Test all services
-./scripts/test-services.sh
+./scripts/start-traefik.sh
+# Choose option 4: Test Services
 
 # Test specific service
 curl http://localhost/users/
@@ -211,11 +253,29 @@ curl http://localhost/orders/
 
 # Run load test
 ab -n 1000 -c 10 http://localhost/health
+
+# Advanced load testing
+wrk -t12 -c400 -d30s http://localhost/
 ```
 
 ## 🛠️ Troubleshooting
 
 ### **Common Issues**
+
+#### **Load Balancer Issues**
+```bash
+# Check load balancer status
+curl -v http://localhost/health
+
+# Check circuit breaker status
+curl http://localhost:8888/api/http/middlewares
+
+# Check rate limiting
+curl -v http://localhost/health | grep -i "429"
+
+# Test sticky sessions
+curl -c cookies.txt -v http://localhost/users/
+```
 
 #### **Services not starting**
 ```bash
@@ -223,36 +283,42 @@ ab -n 1000 -c 10 http://localhost/health
 docker info
 
 # Check service logs
-docker-compose -f docker-compose.traefik-local.yml logs
+docker-compose -f docker-compose.local-clean.yml logs
 
 # Restart services
-docker-compose -f docker-compose.traefik-local.yml restart
+docker-compose -f docker-compose.local-clean.yml restart
 ```
 
 #### **SSL certificate issues**
 ```bash
 # Check certificate status
-docker-compose -f docker-compose.traefik.yml logs traefik
+docker-compose -f docker-compose.prod-clean.yml logs traefik
 
-# Renew certificates
-./scripts/renew-ssl.sh
+# Test SSL connection
+openssl s_client -connect apifincheck.husanenglish.online:443
 ```
 
-#### **Traefik dashboard not accessible**
+#### **Kubernetes issues**
 ```bash
-# Check Traefik logs
-docker-compose -f docker-compose.traefik-local.yml logs traefik
+# Check pod status
+kubectl get pods -n traefik-gateway
 
-# Verify port 8080 is open
-netstat -tlnp | grep 8080
+# Check service status
+kubectl get svc -n traefik-gateway
+
+# Check HPA status
+kubectl get hpa -n traefik-gateway
+
+# View logs
+kubectl logs -f deployment/traefik-gateway -n traefik-gateway
 ```
 
 ## 📚 Documentation
 
-- **Local Development**: [Local Setup Guide](docs/local-setup.md)
-- **Production Deployment**: [Production Guide](docs/production.md)
+- **Quick Start**: Run `./scripts/start-traefik.sh` for interactive menu
+- **Load Balancer Features**: Built-in health checks, circuit breaker, rate limiting
 - **Kubernetes**: [K8s Deployment Guide](k8s/README-k8s.md)
-- **API Documentation**: [API Reference](docs/api-reference.md)
+- **Testing**: Use `./scripts/test-loadbalancer.sh` for comprehensive testing
 
 ## 🤝 Contributing
 

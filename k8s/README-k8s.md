@@ -23,10 +23,12 @@ Complete Kubernetes deployment for Traefik gateway with automatic SSL certificat
 ### **Deploy to Kubernetes**
 ```bash
 # Deploy Traefik with all services
-./scripts/setup-k8s.sh
+./scripts/start-traefik.sh
+# Choose option 3: Kubernetes
 
 # Test deployment
-./scripts/test-k8s.sh
+./scripts/start-traefik.sh
+# Choose option 4: Test Services
 ```
 
 ### **Manual Deployment**

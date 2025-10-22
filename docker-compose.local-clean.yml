@@ -1,4 +1,4 @@
-# Docker Compose for Local Development - Traefik
+# Docker Compose for Local Development - Traefik Gateway with Load Balancer
 
 services:
   traefik:
@@ -7,6 +7,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
       - "8888:8080"  # Traefik dashboard
     environment:
       - TRAEFIK_LOG_LEVEL=INFO
@@ -15,6 +16,17 @@ services:
       - TRAEFIK_PROVIDERS_DOCKER=true
       - TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false
       - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:80
+      - TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=:443
+      # Load Balancer Configuration
+      - TRAEFIK_SERVICES_LOADBALANCER_HEALTHCHECK_PATH=/health
+      - TRAEFIK_SERVICES_LOADBALANCER_HEALTHCHECK_INTERVAL=10s
+      - TRAEFIK_SERVICES_LOADBALANCER_HEALTHCHECK_TIMEOUT=5s
+      - TRAEFIK_SERVICES_LOADBALANCER_HEALTHCHECK_RETRIES=3
+      # Circuit Breaker
+      - TRAEFIK_HTTP_MIDDLEWARES_CIRCUITBREAKER_EXPRESSION=NetworkErrorRatio() > 0.3
+      # Rate Limiting
+      - TRAEFIK_HTTP_MIDDLEWARES_RATELIMIT_BURST=100
+      - TRAEFIK_HTTP_MIDDLEWARES_RATELIMIT_AVERAGE=50
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -40,12 +52,24 @@ services:
       - traefik-network
     labels:
       - traefik.enable=true
-      - traefik.http.routers.backend1.rule=Host(`localhost`) && PathPrefix(`/users/`)
+      # Router configuration
+      - traefik.http.routers.backend1.rule=Host(`localhost`) && (PathPrefix(`/users/`) || PathPrefix(`/auth/`))
       - traefik.http.routers.backend1.entrypoints=web
       - traefik.http.routers.backend1.service=backend1-service
+      - traefik.http.routers.backend1.middlewares=ratelimit,circuitbreaker,compression
+      # Service configuration with load balancing
       - traefik.http.services.backend1-service.loadbalancer.server.port=3000
       - traefik.http.services.backend1-service.loadbalancer.healthcheck.path=/health
-      - traefik.http.services.backend1-service.loadbalancer.healthcheck.interval=30s
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.interval=10s
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.timeout=5s
+      - traefik.http.services.backend1-service.loadbalancer.healthcheck.retries=3
+      - traefik.http.services.backend1-service.loadbalancer.sticky.cookie=true
+      - traefik.http.services.backend1-service.loadbalancer.sticky.cookie.name=backend1-sticky
+      # Middleware configuration
+      - traefik.http.middlewares.ratelimit.ratelimit.burst=100
+      - traefik.http.middlewares.ratelimit.ratelimit.average=50
+      - traefik.http.middlewares.circuitbreaker.circuitbreaker.expression=NetworkErrorRatio() > 0.3
+      - traefik.http.middlewares.compression.compress=true
 
   backend2:
     build:
@@ -62,12 +86,19 @@ services:
       - traefik-network
     labels:
       - traefik.enable=true
+      # Router configuration
       - traefik.http.routers.backend2.rule=Host(`localhost`) && (PathPrefix(`/products/`) || PathPrefix(`/docs/`))
       - traefik.http.routers.backend2.entrypoints=web
       - traefik.http.routers.backend2.service=backend2-service
+      - traefik.http.routers.backend2.middlewares=ratelimit,circuitbreaker,compression
+      # Service configuration with load balancing
       - traefik.http.services.backend2-service.loadbalancer.server.port=8000
       - traefik.http.services.backend2-service.loadbalancer.healthcheck.path=/health
-      - traefik.http.services.backend2-service.loadbalancer.healthcheck.interval=30s
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.interval=10s
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.timeout=5s
+      - traefik.http.services.backend2-service.loadbalancer.healthcheck.retries=3
+      - traefik.http.services.backend2-service.loadbalancer.sticky.cookie=true
+      - traefik.http.services.backend2-service.loadbalancer.sticky.cookie.name=backend2-sticky
 
   backend3:
     build:
@@ -84,12 +115,19 @@ services:
       - traefik-network
     labels:
       - traefik.enable=true
+      # Router configuration
       - traefik.http.routers.backend3.rule=Host(`localhost`) && PathPrefix(`/orders/`)
       - traefik.http.routers.backend3.entrypoints=web
       - traefik.http.routers.backend3.service=backend3-service
+      - traefik.http.routers.backend3.middlewares=ratelimit,circuitbreaker,compression
+      # Service configuration with load balancing
       - traefik.http.services.backend3-service.loadbalancer.server.port=8080
       - traefik.http.services.backend3-service.loadbalancer.healthcheck.path=/health
-      - traefik.http.services.backend3-service.loadbalancer.healthcheck.interval=30s
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.interval=10s
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.timeout=5s
+      - traefik.http.services.backend3-service.loadbalancer.healthcheck.retries=3
+      - traefik.http.services.backend3-service.loadbalancer.sticky.cookie=true
+      - traefik.http.services.backend3-service.loadbalancer.sticky.cookie.name=backend3-sticky
 
   # Health check service
   health-check:

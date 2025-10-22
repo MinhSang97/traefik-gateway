@@ -7,7 +7,10 @@ metadata:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-gateway-ratelimit,traefik-gateway-circuitbreaker,traefik-gateway-compression,traefik-gateway-security-headers
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   tls:
   - hosts:
@@ -52,3 +55,46 @@ spec:
             name: backend3-service
             port:
               number: 8080
+---
+# Middleware configurations for load balancing and security
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit
+  namespace: traefik-gateway
+spec:
+  rateLimit:
+    burst: 200
+    average: 100
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: circuitbreaker
+  namespace: traefik-gateway
+spec:
+  circuitBreaker:
+    expression: NetworkErrorRatio() > 0.3
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: compression
+  namespace: traefik-gateway
+spec:
+  compress: {}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: traefik-gateway
+spec:
+  headers:
+    forceSTSHeader: true
+    frameDeny: true
+    contentTypeNosniff: true
+    browserXssFilter: true
+    stsIncludeSubdomains: true
+    stsPreload: true
+    stsSeconds: 31536000

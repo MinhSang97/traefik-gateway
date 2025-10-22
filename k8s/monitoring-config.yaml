@@ -1,0 +1,118 @@
+# Monitoring and Metrics Configuration for Traefik Gateway
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: traefik-gateway-metrics
+  namespace: traefik-gateway
+  labels:
+    app: traefik-gateway
+spec:
+  selector:
+    matchLabels:
+      app: traefik-gateway
+  endpoints:
+  - port: dashboard
+    path: /metrics
+    interval: 30s
+---
+# Prometheus Service for metrics collection
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-gateway-metrics
+  namespace: traefik-gateway
+  labels:
+    app: traefik-gateway
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: traefik-gateway
+---
+# Grafana Dashboard ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traefik-dashboard
+  namespace: traefik-gateway
+data:
+  dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Traefik Gateway Metrics",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(traefik_http_requests_total[5m])",
+                "legendFormat": "{{method}} {{code}}"
+              }
+            ]
+          },
+          {
+            "title": "Response Time",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(traefik_http_request_duration_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile"
+              }
+            ]
+          },
+          {
+            "title": "Active Connections",
+            "type": "singlestat",
+            "targets": [
+              {
+                "expr": "traefik_service_requests_total",
+                "legendFormat": "Active Connections"
+              }
+            ]
+          }
+        ]
+      }
+    }
+---
+# Health Check Endpoint Configuration
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: health-check
+  namespace: traefik-gateway
+spec:
+  entryPoints:
+  - websecure
+  routes:
+  - match: Host(`apifincheck.husanenglish.online`) && PathPrefix(`/health`)
+    kind: Rule
+    services:
+    - name: health-check-service
+      port: 80
+    middlewares:
+    - name: security-headers
+  tls:
+    certResolver: letsencrypt
+---
+# Metrics Endpoint Configuration
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: metrics-endpoint
+  namespace: traefik-gateway
+spec:
+  entryPoints:
+  - websecure
+  routes:
+  - match: Host(`apifincheck.husanenglish.online`) && PathPrefix(`/metrics`)
+    kind: Rule
+    services:
+    - name: traefik-gateway-metrics
+      port: 8080
+    middlewares:
+    - name: security-headers
+  tls:
+    certResolver: letsencrypt
